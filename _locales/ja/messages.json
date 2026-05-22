@@ -1,1 +1,116 @@
-{ "extName": { "message": "つづけるドット" }, "extDesc": { "message": "習慣を登録して毎日できたらドットを付ける。連続日数とカレンダーで継続を見える化。" } }
+{
+  "extName": {
+    "message": "つづけるドット"
+  },
+  "extDesc": {
+    "message": "習慣を登録して毎日できたらドットを付ける。連続日数とカレンダーで継続を見える化。"
+  },
+  "defaultHabitWater": {
+    "message": "水を飲む"
+  },
+  "defaultHabitStretch": {
+    "message": "ストレッチ"
+  },
+  "defaultHabitJournal": {
+    "message": "日記"
+  },
+  "streakCount": {
+    "message": "$COUNT$日連続",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "today": {
+    "message": "今日"
+  },
+  "editButton": {
+    "message": "編集"
+  },
+  "deleteButton": {
+    "message": "削除"
+  },
+  "weekdaySun": {
+    "message": "日"
+  },
+  "weekdayMon": {
+    "message": "月"
+  },
+  "weekdayTue": {
+    "message": "火"
+  },
+  "weekdayWed": {
+    "message": "水"
+  },
+  "weekdayThu": {
+    "message": "木"
+  },
+  "weekdayFri": {
+    "message": "金"
+  },
+  "weekdaySat": {
+    "message": "土"
+  },
+  "monthHeading": {
+    "message": "$YEAR$年$MONTH$月",
+    "placeholders": {
+      "year": {
+        "content": "$1"
+      },
+      "month": {
+        "content": "$2"
+      }
+    }
+  },
+  "monthCalendarAria": {
+    "message": "月カレンダー"
+  },
+  "calendarDayAria": {
+    "message": "$DATE$: $SUMMARY$",
+    "placeholders": {
+      "date": {
+        "content": "$1"
+      },
+      "summary": {
+        "content": "$2"
+      }
+    }
+  },
+  "listSeparator": {
+    "message": "、"
+  },
+  "noCompletions": {
+    "message": "達成なし"
+  },
+  "todaySummaryAria": {
+    "message": "今日の達成状況"
+  },
+  "todayCheck": {
+    "message": "今日のチェック"
+  },
+  "habitListHeading": {
+    "message": "習慣一覧"
+  },
+  "emojiLabel": {
+    "message": "絵文字"
+  },
+  "nameLabel": {
+    "message": "名前"
+  },
+  "habitNamePlaceholder": {
+    "message": "習慣を入力"
+  },
+  "addButton": {
+    "message": "追加"
+  },
+  "cancelButton": {
+    "message": "取消"
+  },
+  "saveButton": {
+    "message": "保存"
+  },
+  "emptyHabits": {
+    "message": "習慣がありません。"
+  }
+}

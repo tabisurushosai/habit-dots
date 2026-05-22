@@ -1,1 +1,116 @@
-{ "extName": { "message": "Habit Dots" }, "extDesc": { "message": "Mark a dot each day you keep a habit. See streaks and a calendar to stay consistent." } }
+{
+  "extName": {
+    "message": "Habit Dots"
+  },
+  "extDesc": {
+    "message": "Mark a dot each day you keep a habit. See streaks and a calendar to stay consistent."
+  },
+  "defaultHabitWater": {
+    "message": "Drink water"
+  },
+  "defaultHabitStretch": {
+    "message": "Stretch"
+  },
+  "defaultHabitJournal": {
+    "message": "Journal"
+  },
+  "streakCount": {
+    "message": "$COUNT$ day streak",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "today": {
+    "message": "Today"
+  },
+  "editButton": {
+    "message": "Edit"
+  },
+  "deleteButton": {
+    "message": "Delete"
+  },
+  "weekdaySun": {
+    "message": "Sun"
+  },
+  "weekdayMon": {
+    "message": "Mon"
+  },
+  "weekdayTue": {
+    "message": "Tue"
+  },
+  "weekdayWed": {
+    "message": "Wed"
+  },
+  "weekdayThu": {
+    "message": "Thu"
+  },
+  "weekdayFri": {
+    "message": "Fri"
+  },
+  "weekdaySat": {
+    "message": "Sat"
+  },
+  "monthHeading": {
+    "message": "$MONTH$/$YEAR$",
+    "placeholders": {
+      "year": {
+        "content": "$1"
+      },
+      "month": {
+        "content": "$2"
+      }
+    }
+  },
+  "monthCalendarAria": {
+    "message": "Monthly calendar"
+  },
+  "calendarDayAria": {
+    "message": "$DATE$: $SUMMARY$",
+    "placeholders": {
+      "date": {
+        "content": "$1"
+      },
+      "summary": {
+        "content": "$2"
+      }
+    }
+  },
+  "listSeparator": {
+    "message": ", "
+  },
+  "noCompletions": {
+    "message": "No completions"
+  },
+  "todaySummaryAria": {
+    "message": "Today's completion status"
+  },
+  "todayCheck": {
+    "message": "Today's checks"
+  },
+  "habitListHeading": {
+    "message": "Habits"
+  },
+  "emojiLabel": {
+    "message": "Emoji"
+  },
+  "nameLabel": {
+    "message": "Name"
+  },
+  "habitNamePlaceholder": {
+    "message": "Enter a habit"
+  },
+  "addButton": {
+    "message": "Add"
+  },
+  "cancelButton": {
+    "message": "Cancel"
+  },
+  "saveButton": {
+    "message": "Save"
+  },
+  "emptyHabits": {
+    "message": "No habits yet."
+  }
+}

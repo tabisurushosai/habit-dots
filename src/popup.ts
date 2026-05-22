@@ -11,14 +11,21 @@ type StoredHabit = Pick<Habit, "id" | "name" | "emoji" | "completedDates">;
 
 const STORAGE_KEY = "habit-dots:habits";
 
-const defaultHabits: StoredHabit[] = [
-  { id: "water", name: "水を飲む", emoji: "💧", completedDates: [] },
-  { id: "stretch", name: "ストレッチ", emoji: "🧘", completedDates: [] },
-  { id: "journal", name: "日記", emoji: "✍️", completedDates: [] },
-];
-
 const app = document.querySelector<HTMLDivElement>("#app");
+const appTitle = document.querySelector<HTMLHeadingElement>("#app-title");
 const DATE_ROLLOVER_CHECK_MS = 60_000;
+
+function t(messageName: string, substitutions?: string | string[]): string {
+  return chrome.i18n.getMessage(messageName, substitutions) || messageName;
+}
+
+function getDefaultHabits(): StoredHabit[] {
+  return [
+    { id: "water", name: t("defaultHabitWater"), emoji: "💧", completedDates: [] },
+    { id: "stretch", name: t("defaultHabitStretch"), emoji: "🧘", completedDates: [] },
+    { id: "journal", name: t("defaultHabitJournal"), emoji: "✍️", completedDates: [] },
+  ];
+}
 
 function cloneStoredHabits(habits: StoredHabit[]): StoredHabit[] {
   return habits.map((habit) => ({
@@ -134,7 +141,7 @@ function loadStoredHabits(): Promise<StoredHabit[]> {
   return new Promise((resolve) => {
     chrome.storage.local.get([STORAGE_KEY], (result) => {
       const normalizedHabits = normalizeStoredHabits(result[STORAGE_KEY]);
-      resolve(normalizedHabits ?? cloneStoredHabits(defaultHabits));
+      resolve(normalizedHabits ?? cloneStoredHabits(getDefaultHabits()));
     });
   });
 }
@@ -169,7 +176,7 @@ function renderHabit(
 
   const details = document.createElement("span");
   details.className = "habit-details";
-  details.textContent = `${habit.streak}日連続`;
+  details.textContent = t("streakCount", String(habit.streak));
 
   const copy = document.createElement("span");
   copy.className = "habit-copy";
@@ -184,7 +191,7 @@ function renderHabit(
   checkbox.addEventListener("change", () => onToggleToday(habit));
 
   const checkText = document.createElement("span");
-  checkText.textContent = "今日";
+  checkText.textContent = t("today");
 
   const actions = document.createElement("span");
   actions.className = "habit-actions";
@@ -192,13 +199,13 @@ function renderHabit(
   const editButton = document.createElement("button");
   editButton.className = "habit-action";
   editButton.type = "button";
-  editButton.textContent = "編集";
+  editButton.textContent = t("editButton");
   editButton.addEventListener("click", () => onEdit(habit));
 
   const deleteButton = document.createElement("button");
   deleteButton.className = "habit-action danger";
   deleteButton.type = "button";
-  deleteButton.textContent = "削除";
+  deleteButton.textContent = t("deleteButton");
   deleteButton.addEventListener("click", () => onDelete(habit));
 
   actions.append(editButton, deleteButton);
@@ -212,7 +219,15 @@ function renderMonthCalendar(habits: Habit[], today: Date): HTMLElement {
   const todayKey = toDateKey(today);
   const monthDateKeys = getMonthDateKeys(today);
   const firstWeekday = new Date(today.getFullYear(), today.getMonth(), 1).getDay();
-  const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
+  const weekdayLabels = [
+    t("weekdaySun"),
+    t("weekdayMon"),
+    t("weekdayTue"),
+    t("weekdayWed"),
+    t("weekdayThu"),
+    t("weekdayFri"),
+    t("weekdaySat"),
+  ];
 
   const completedByDate = new Map<string, Habit[]>();
   for (const habit of habits) {
@@ -228,12 +243,12 @@ function renderMonthCalendar(habits: Habit[], today: Date): HTMLElement {
 
   const heading = document.createElement("h2");
   heading.className = "section-heading";
-  heading.textContent = `${today.getFullYear()}年${today.getMonth() + 1}月`;
+  heading.textContent = t("monthHeading", [String(today.getFullYear()), String(today.getMonth() + 1)]);
 
   const calendar = document.createElement("div");
   calendar.className = "month-calendar";
   calendar.setAttribute("role", "grid");
-  calendar.setAttribute("aria-label", "月カレンダー");
+  calendar.setAttribute("aria-label", t("monthCalendarAria"));
 
   for (const label of weekdayLabels) {
     const weekday = document.createElement("span");
@@ -256,7 +271,10 @@ function renderMonthCalendar(habits: Habit[], today: Date): HTMLElement {
     day.setAttribute("role", "gridcell");
     day.setAttribute(
       "aria-label",
-      `${dateKey}: ${completedHabits.length > 0 ? completedHabits.map((habit) => habit.name).join("、") : "達成なし"}`,
+      t("calendarDayAria", [
+        dateKey,
+        completedHabits.length > 0 ? completedHabits.map((habit) => habit.name).join(t("listSeparator")) : t("noCompletions"),
+      ]),
     );
 
     if (dateKey === todayKey) {
@@ -583,11 +601,11 @@ function renderPopup(
 
   const summary = document.createElement("section");
   summary.className = "today-summary";
-  summary.setAttribute("aria-label", "今日の達成状況");
+  summary.setAttribute("aria-label", t("todaySummaryAria"));
 
   const summaryLabel = document.createElement("span");
   summaryLabel.className = "summary-label";
-  summaryLabel.textContent = "今日のチェック";
+  summaryLabel.textContent = t("todayCheck");
 
   const summaryCount = document.createElement("strong");
   summaryCount.className = "summary-count";
@@ -600,7 +618,7 @@ function renderPopup(
 
   const heading = document.createElement("h2");
   heading.className = "section-heading";
-  heading.textContent = "習慣一覧";
+  heading.textContent = t("habitListHeading");
 
   const form = document.createElement("form");
   form.className = "habit-form";
@@ -610,7 +628,7 @@ function renderPopup(
 
   const emojiLabel = document.createElement("span");
   emojiLabel.className = "form-label";
-  emojiLabel.textContent = "絵文字";
+  emojiLabel.textContent = t("emojiLabel");
 
   const emojiInput = document.createElement("input");
   emojiInput.className = "form-input";
@@ -626,33 +644,33 @@ function renderPopup(
 
   const nameLabel = document.createElement("span");
   nameLabel.className = "form-label";
-  nameLabel.textContent = "名前";
+  nameLabel.textContent = t("nameLabel");
 
   const nameInput = document.createElement("input");
   nameInput.className = "form-input";
   nameInput.name = "name";
   nameInput.maxLength = 40;
   nameInput.required = true;
-  nameInput.placeholder = "習慣を入力";
+  nameInput.placeholder = t("habitNamePlaceholder");
 
   nameField.append(nameLabel, nameInput);
 
   const submitButton = document.createElement("button");
   submitButton.className = "primary-button";
   submitButton.type = "submit";
-  submitButton.textContent = "追加";
+  submitButton.textContent = t("addButton");
 
   const cancelButton = document.createElement("button");
   cancelButton.className = "secondary-button";
   cancelButton.type = "button";
-  cancelButton.textContent = "取消";
+  cancelButton.textContent = t("cancelButton");
   cancelButton.hidden = true;
 
   const resetForm = (): void => {
     editingId = null;
     emojiInput.value = "✅";
     nameInput.value = "";
-    submitButton.textContent = "追加";
+    submitButton.textContent = t("addButton");
     cancelButton.hidden = true;
   };
 
@@ -688,7 +706,7 @@ function renderPopup(
           editingId = habitToEdit.id;
           emojiInput.value = habitToEdit.emoji;
           nameInput.value = habitToEdit.name;
-          submitButton.textContent = "保存";
+          submitButton.textContent = t("saveButton");
           cancelButton.hidden = false;
           nameInput.focus();
         },
@@ -701,7 +719,7 @@ function renderPopup(
 
   const emptyState = document.createElement("p");
   emptyState.className = "empty-state";
-  emptyState.textContent = "習慣がありません。";
+  emptyState.textContent = t("emptyHabits");
 
   habitSection.append(heading, form, habits.length > 0 ? list : emptyState);
   shell.append(summary, renderMonthCalendar(habits, today), habitSection);
@@ -709,6 +727,11 @@ function renderPopup(
 }
 
 if (app) {
+  document.title = t("extName");
+  if (appTitle) {
+    appTitle.textContent = t("extName");
+  }
+
   let currentStoredHabits: StoredHabit[] = [];
   let renderedTodayKey = toDateKey(new Date());
 
