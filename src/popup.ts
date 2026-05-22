@@ -9,7 +9,22 @@ type Habit = {
 
 type StoredHabit = Pick<Habit, "id" | "name" | "emoji" | "completedDates">;
 
+type PremiumState = {
+  trialStartTs: number | null;
+  premiumUnlocked: boolean;
+};
+
+type PopupState = {
+  habits: StoredHabit[];
+  premium: PremiumState;
+};
+
 const STORAGE_KEY = "habit-dots:habits";
+const PREMIUM_STORAGE_KEY = "habit-dots:premium";
+const FREE_HABIT_LIMIT = 3;
+const TRIAL_DAYS = 7;
+const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+const STRIPE_CHECKOUT_URL = "https://checkout.stripe.com/c/pay/cs_test_habit_dots_premium";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 const appTitle = document.querySelector<HTMLHeadingElement>("#app-title");
@@ -129,6 +144,39 @@ function normalizeStoredHabits(value: unknown): StoredHabit[] | null {
   return normalizedHabits;
 }
 
+function normalizePremiumState(value: unknown): PremiumState {
+  if (!value || typeof value !== "object") {
+    return { trialStartTs: null, premiumUnlocked: false };
+  }
+
+  const premium = value as Record<string, unknown>;
+  const trialStartTs =
+    typeof premium.trial_start_ts === "number" && Number.isFinite(premium.trial_start_ts)
+      ? premium.trial_start_ts
+      : null;
+
+  return {
+    trialStartTs,
+    premiumUnlocked: premium.premium_unlocked === true,
+  };
+}
+
+function isTrialActive(premium: PremiumState, now = Date.now()): boolean {
+  return premium.trialStartTs !== null && now - premium.trialStartTs < TRIAL_MS;
+}
+
+function getTrialDaysLeft(premium: PremiumState, now = Date.now()): number {
+  if (!isTrialActive(premium, now) || premium.trialStartTs === null) {
+    return 0;
+  }
+
+  return Math.max(1, Math.ceil((premium.trialStartTs + TRIAL_MS - now) / (24 * 60 * 60 * 1000)));
+}
+
+function hasPremiumAccess(premium: PremiumState): boolean {
+  return premium.premiumUnlocked || isTrialActive(premium);
+}
+
 function createHabitId(): string {
   if (typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -137,23 +185,43 @@ function createHabitId(): string {
   return `habit-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function loadStoredHabits(): Promise<StoredHabit[]> {
+function loadPopupState(): Promise<PopupState> {
   return new Promise((resolve) => {
-    chrome.storage.local.get([STORAGE_KEY], (result) => {
+    chrome.storage.local.get([STORAGE_KEY, PREMIUM_STORAGE_KEY], (result) => {
       const normalizedHabits = normalizeStoredHabits(result[STORAGE_KEY]);
-      resolve(normalizedHabits ?? cloneStoredHabits(getDefaultHabits()));
+      resolve({
+        habits: normalizedHabits ?? cloneStoredHabits(getDefaultHabits()),
+        premium: normalizePremiumState(result[PREMIUM_STORAGE_KEY]),
+      });
     });
   });
 }
 
-async function restorePopupState(): Promise<StoredHabit[]> {
-  const storedHabits = await loadStoredHabits();
-  return cloneStoredHabits(storedHabits);
+async function restorePopupState(): Promise<PopupState> {
+  const state = await loadPopupState();
+  return {
+    habits: cloneStoredHabits(state.habits),
+    premium: state.premium,
+  };
 }
 
 function saveStoredHabits(habits: StoredHabit[]): Promise<void> {
   return new Promise((resolve) => {
     chrome.storage.local.set({ [STORAGE_KEY]: habits }, () => resolve());
+  });
+}
+
+function savePremiumState(premium: PremiumState): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.storage.local.set(
+      {
+        [PREMIUM_STORAGE_KEY]: {
+          trial_start_ts: premium.trialStartTs,
+          premium_unlocked: premium.premiumUnlocked,
+        },
+      },
+      () => resolve(),
+    );
   });
 }
 
@@ -303,15 +371,109 @@ function renderMonthCalendar(habits: Habit[], today: Date): HTMLElement {
   return section;
 }
 
+function renderPremiumPanel(premium: PremiumState, habitCount: number, onStartTrial: () => void): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "premium-panel";
+
+  const heading = document.createElement("h2");
+  heading.className = "section-heading";
+  heading.textContent = t("premiumHeading");
+
+  const status = document.createElement("p");
+  status.className = "premium-status";
+
+  if (premium.premiumUnlocked) {
+    status.textContent = t("premiumActive");
+  } else if (isTrialActive(premium)) {
+    status.textContent = t("premiumTrialActive", String(getTrialDaysLeft(premium)));
+  } else if (premium.trialStartTs !== null) {
+    status.textContent = t("premiumTrialExpired");
+  } else {
+    status.textContent = t("premiumTrialAvailable", String(TRIAL_DAYS));
+  }
+
+  const limit = document.createElement("p");
+  limit.className = "premium-limit";
+  limit.textContent = hasPremiumAccess(premium)
+    ? t("premiumUnlimited")
+    : t("freeHabitLimit", [String(habitCount), String(FREE_HABIT_LIMIT)]);
+
+  const actions = document.createElement("div");
+  actions.className = "premium-actions";
+
+  if (premium.trialStartTs === null && !premium.premiumUnlocked) {
+    const trialButton = document.createElement("button");
+    trialButton.className = "secondary-button";
+    trialButton.type = "button";
+    trialButton.textContent = t("startTrialButton");
+    trialButton.addEventListener("click", onStartTrial);
+    actions.append(trialButton);
+  }
+
+  const checkoutLink = document.createElement("a");
+  checkoutLink.className = "checkout-link";
+  checkoutLink.href = STRIPE_CHECKOUT_URL;
+  checkoutLink.target = "_blank";
+  checkoutLink.rel = "noopener noreferrer";
+  checkoutLink.textContent = t("checkoutButton");
+  actions.append(checkoutLink);
+
+  section.append(heading, status, limit, actions);
+  return section;
+}
+
+function renderStreakHistory(habits: Habit[], premium: PremiumState): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "history-section";
+
+  const heading = document.createElement("h2");
+  heading.className = "section-heading";
+  heading.textContent = t("streakHistoryHeading");
+
+  if (!hasPremiumAccess(premium)) {
+    const locked = document.createElement("p");
+    locked.className = "empty-state";
+    locked.textContent = t("streakHistoryLocked");
+    section.append(heading, locked);
+    return section;
+  }
+
+  const list = document.createElement("ul");
+  list.className = "history-list";
+
+  for (const habit of habits) {
+    const item = document.createElement("li");
+    item.className = "history-item";
+
+    const label = document.createElement("span");
+    label.className = "history-label";
+    label.textContent = `${habit.emoji} ${habit.name}`;
+
+    const dates = document.createElement("span");
+    dates.className = "history-dates";
+    dates.textContent =
+      habit.completedDates.length > 0 ? habit.completedDates.slice(-5).reverse().join(t("listSeparator")) : t("noCompletions");
+
+    item.append(label, dates);
+    list.append(item);
+  }
+
+  section.append(heading, list);
+  return section;
+}
+
 function renderPopup(
   root: HTMLDivElement,
   storedHabits: StoredHabit[],
+  premium: PremiumState,
   today: Date,
-  onStoredHabitsChange: (habits: StoredHabit[]) => void,
+  onPopupStateChange: (state: PopupState) => void,
 ): void {
   root.innerHTML = "";
   const todayKey = toDateKey(today);
   const habits = storedHabits.map((storedHabit) => toHabit(storedHabit, todayKey));
+  const premiumAccess = hasPremiumAccess(premium);
+  const freeLimitReached = !premiumAccess && storedHabits.length >= FREE_HABIT_LIMIT;
 
   const style = document.createElement("style");
   style.textContent = `
@@ -350,7 +512,8 @@ function renderPopup(
       gap: 8px;
     }
 
-    .calendar-section {
+    .calendar-section,
+    .history-section {
       display: grid;
       gap: 8px;
     }
@@ -422,6 +585,10 @@ function renderPopup(
       padding: 10px;
       border: 1px solid #dde3ea;
       border-radius: 8px;
+    }
+
+    .habit-form.is-locked {
+      background: #f7fafc;
     }
 
     .form-field {
@@ -557,18 +724,93 @@ function renderPopup(
       color: #5d6b7a;
       font-size: 13px;
     }
+
+    .premium-panel {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid #dde3ea;
+      border-radius: 8px;
+      background: #fbfcfe;
+    }
+
+    .premium-status,
+    .premium-limit {
+      margin: 0;
+      color: #405160;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .premium-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .checkout-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 10px;
+      border: 1px solid #2563eb;
+      border-radius: 6px;
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .history-item {
+      display: grid;
+      gap: 3px;
+      padding: 8px;
+      border: 1px solid #dde3ea;
+      border-radius: 8px;
+    }
+
+    .history-label {
+      font-size: 13px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .history-dates {
+      color: #5d6b7a;
+      font-size: 12px;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
   `;
 
   let editingId: string | null = null;
 
   const rerenderWith = (nextHabits: StoredHabit[]): void => {
-    renderPopup(root, nextHabits, new Date(), onStoredHabitsChange);
+    renderPopup(root, nextHabits, premium, new Date(), onPopupStateChange);
   };
 
   const persistAndRender = async (nextHabits: StoredHabit[]): Promise<void> => {
     await saveStoredHabits(nextHabits);
-    onStoredHabitsChange(nextHabits);
+    onPopupStateChange({ habits: nextHabits, premium });
     rerenderWith(nextHabits);
+  };
+
+  const startTrial = (): void => {
+    const nextPremium = { ...premium, trialStartTs: Date.now() };
+    void savePremiumState(nextPremium).then(() => {
+      onPopupStateChange({ habits: storedHabits, premium: nextPremium });
+      renderPopup(root, storedHabits, nextPremium, new Date(), onPopupStateChange);
+    });
   };
 
   const toggleToday = (habitToToggle: Habit): void => {
@@ -622,6 +864,9 @@ function renderPopup(
 
   const form = document.createElement("form");
   form.className = "habit-form";
+  if (freeLimitReached) {
+    form.classList.add("is-locked");
+  }
 
   const emojiField = document.createElement("label");
   emojiField.className = "form-field";
@@ -686,6 +931,10 @@ function renderPopup(
       return;
     }
 
+    if (!editingId && freeLimitReached) {
+      return;
+    }
+
     const nextHabits = editingId
       ? storedHabits.map((habit) => (habit.id === editingId ? { ...habit, emoji, name } : habit))
       : [...storedHabits, { id: createHabitId(), emoji, name, completedDates: [] }];
@@ -694,6 +943,10 @@ function renderPopup(
   });
 
   form.append(emojiField, nameField, submitButton, cancelButton);
+
+  const limitNotice = document.createElement("p");
+  limitNotice.className = "empty-state";
+  limitNotice.textContent = t("freeLimitReached");
 
   const list = document.createElement("ul");
   list.className = "habit-list";
@@ -721,8 +974,18 @@ function renderPopup(
   emptyState.className = "empty-state";
   emptyState.textContent = t("emptyHabits");
 
-  habitSection.append(heading, form, habits.length > 0 ? list : emptyState);
-  shell.append(summary, renderMonthCalendar(habits, today), habitSection);
+  habitSection.append(heading, form);
+  if (freeLimitReached) {
+    habitSection.append(limitNotice);
+  }
+  habitSection.append(habits.length > 0 ? list : emptyState);
+  shell.append(
+    summary,
+    renderPremiumPanel(premium, habits.length, startTrial),
+    renderMonthCalendar(habits, today),
+    renderStreakHistory(habits, premium),
+    habitSection,
+  );
   root.append(style, shell);
 }
 
@@ -732,19 +995,22 @@ if (app) {
     appTitle.textContent = t("extName");
   }
 
-  let currentStoredHabits: StoredHabit[] = [];
+  let currentState: PopupState = {
+    habits: [],
+    premium: { trialStartTs: null, premiumUnlocked: false },
+  };
   let renderedTodayKey = toDateKey(new Date());
 
-  const updateStoredHabits = (habits: StoredHabit[]): void => {
-    currentStoredHabits = habits;
+  const updatePopupState = (state: PopupState): void => {
+    currentState = state;
   };
 
   const renderCurrentState = (): void => {
-    renderPopup(app, currentStoredHabits, new Date(), updateStoredHabits);
+    renderPopup(app, currentState.habits, currentState.premium, new Date(), updatePopupState);
   };
 
-  void restorePopupState().then((habits) => {
-    updateStoredHabits(habits);
+  void restorePopupState().then((state) => {
+    updatePopupState(state);
     renderCurrentState();
 
     window.setInterval(() => {

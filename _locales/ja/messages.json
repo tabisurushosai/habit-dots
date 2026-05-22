@@ -112,5 +112,59 @@
   },
   "emptyHabits": {
     "message": "習慣がありません。"
+  },
+  "premiumHeading": {
+    "message": "Premium"
+  },
+  "premiumActive": {
+    "message": "Premium が有効です。"
+  },
+  "premiumTrialActive": {
+    "message": "7日トライアル中です。残り$DAYS$日。",
+    "placeholders": {
+      "days": {
+        "content": "$1"
+      }
+    }
+  },
+  "premiumTrialExpired": {
+    "message": "トライアルは終了しました。"
+  },
+  "premiumTrialAvailable": {
+    "message": "$DAYS$日トライアルを開始できます。",
+    "placeholders": {
+      "days": {
+        "content": "$1"
+      }
+    }
+  },
+  "premiumUnlimited": {
+    "message": "習慣を無制限に登録できます。"
+  },
+  "freeHabitLimit": {
+    "message": "無料プラン: $COUNT$/$LIMIT$ 個の習慣",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    }
+  },
+  "startTrialButton": {
+    "message": "トライアル開始"
+  },
+  "checkoutButton": {
+    "message": "Stripe Checkout"
+  },
+  "freeLimitReached": {
+    "message": "無料プランでは習慣は3つまでです。Premium またはトライアルで無制限になります。"
+  },
+  "streakHistoryHeading": {
+    "message": "ストリーク履歴"
+  },
+  "streakHistoryLocked": {
+    "message": "ストリーク履歴は Premium またはトライアル中に表示されます。"
   }
 }

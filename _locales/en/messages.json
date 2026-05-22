@@ -112,5 +112,59 @@
   },
   "emptyHabits": {
     "message": "No habits yet."
+  },
+  "premiumHeading": {
+    "message": "Premium"
+  },
+  "premiumActive": {
+    "message": "Premium is active."
+  },
+  "premiumTrialActive": {
+    "message": "Your 7-day trial is active. $DAYS$ days left.",
+    "placeholders": {
+      "days": {
+        "content": "$1"
+      }
+    }
+  },
+  "premiumTrialExpired": {
+    "message": "Your trial has ended."
+  },
+  "premiumTrialAvailable": {
+    "message": "Start a $DAYS$-day trial.",
+    "placeholders": {
+      "days": {
+        "content": "$1"
+      }
+    }
+  },
+  "premiumUnlimited": {
+    "message": "You can add unlimited habits."
+  },
+  "freeHabitLimit": {
+    "message": "Free plan: $COUNT$/$LIMIT$ habits",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "limit": {
+        "content": "$2"
+      }
+    }
+  },
+  "startTrialButton": {
+    "message": "Start trial"
+  },
+  "checkoutButton": {
+    "message": "Stripe Checkout"
+  },
+  "freeLimitReached": {
+    "message": "The free plan allows up to 3 habits. Premium or trial unlocks unlimited habits."
+  },
+  "streakHistoryHeading": {
+    "message": "Streak history"
+  },
+  "streakHistoryLocked": {
+    "message": "Streak history is visible with Premium or during the trial."
   }
 }
