@@ -1,5 +1,5 @@
 # habit-dots TODO
-- [ ] T001: src/popup.ts に popup骨格(習慣一覧 + 今日のチェック)を構築
+- [x] T001: src/popup.ts に popup骨格(習慣一覧 + 今日のチェック)を構築
 - [ ] T002: 習慣CRUD(名前/絵文字)を chrome.storage.local に保存・読込
 - [ ] T003: 今日のチェック→ドット付与、連続日数(streak)計算
 - [ ] T004: 月カレンダーに達成ドットを表示
