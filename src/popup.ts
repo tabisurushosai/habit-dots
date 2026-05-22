@@ -18,6 +18,7 @@ const defaultHabits: StoredHabit[] = [
 ];
 
 const app = document.querySelector<HTMLDivElement>("#app");
+const DATE_ROLLOVER_CHECK_MS = 60_000;
 
 function isDateKey(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -94,9 +95,7 @@ function normalizeStoredHabit(value: unknown): StoredHabit | null {
   };
 }
 
-function toHabit(storedHabit: StoredHabit): Habit {
-  const todayKey = toDateKey(new Date());
-
+function toHabit(storedHabit: StoredHabit, todayKey: string): Habit {
   return {
     ...storedHabit,
     checkedToday: storedHabit.completedDates.includes(todayKey),
@@ -191,8 +190,7 @@ function renderHabit(
   return item;
 }
 
-function renderMonthCalendar(habits: Habit[]): HTMLElement {
-  const today = new Date();
+function renderMonthCalendar(habits: Habit[], today: Date): HTMLElement {
   const todayKey = toDateKey(today);
   const monthDateKeys = getMonthDateKeys(today);
   const firstWeekday = new Date(today.getFullYear(), today.getMonth(), 1).getDay();
@@ -269,9 +267,15 @@ function renderMonthCalendar(habits: Habit[]): HTMLElement {
   return section;
 }
 
-function renderPopup(root: HTMLDivElement, storedHabits: StoredHabit[]): void {
+function renderPopup(
+  root: HTMLDivElement,
+  storedHabits: StoredHabit[],
+  today: Date,
+  onStoredHabitsChange: (habits: StoredHabit[]) => void,
+): void {
   root.innerHTML = "";
-  const habits = storedHabits.map(toHabit);
+  const todayKey = toDateKey(today);
+  const habits = storedHabits.map((storedHabit) => toHabit(storedHabit, todayKey));
 
   const style = document.createElement("style");
   style.textContent = `
@@ -522,16 +526,16 @@ function renderPopup(root: HTMLDivElement, storedHabits: StoredHabit[]): void {
   let editingId: string | null = null;
 
   const rerenderWith = (nextHabits: StoredHabit[]): void => {
-    renderPopup(root, nextHabits);
+    renderPopup(root, nextHabits, new Date(), onStoredHabitsChange);
   };
 
   const persistAndRender = async (nextHabits: StoredHabit[]): Promise<void> => {
     await saveStoredHabits(nextHabits);
+    onStoredHabitsChange(nextHabits);
     rerenderWith(nextHabits);
   };
 
   const toggleToday = (habitToToggle: Habit): void => {
-    const todayKey = toDateKey(new Date());
     const nextHabits = storedHabits.map((habit) => {
       if (habit.id !== habitToToggle.id) {
         return habit;
@@ -682,10 +686,34 @@ function renderPopup(root: HTMLDivElement, storedHabits: StoredHabit[]): void {
   emptyState.textContent = "習慣がありません。";
 
   habitSection.append(heading, form, habits.length > 0 ? list : emptyState);
-  shell.append(summary, renderMonthCalendar(habits), habitSection);
+  shell.append(summary, renderMonthCalendar(habits, today), habitSection);
   root.append(style, shell);
 }
 
 if (app) {
-  void loadStoredHabits().then((habits) => renderPopup(app, habits));
+  let currentStoredHabits: StoredHabit[] = [];
+  let renderedTodayKey = toDateKey(new Date());
+
+  const updateStoredHabits = (habits: StoredHabit[]): void => {
+    currentStoredHabits = habits;
+  };
+
+  const renderCurrentState = (): void => {
+    renderPopup(app, currentStoredHabits, new Date(), updateStoredHabits);
+  };
+
+  void loadStoredHabits().then((habits) => {
+    updateStoredHabits(habits);
+    renderCurrentState();
+
+    window.setInterval(() => {
+      const nextTodayKey = toDateKey(new Date());
+      if (nextTodayKey === renderedTodayKey) {
+        return;
+      }
+
+      renderedTodayKey = nextTodayKey;
+      renderCurrentState();
+    }, DATE_ROLLOVER_CHECK_MS);
+  });
 }

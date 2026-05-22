@@ -3,7 +3,7 @@
 - [x] T002: 習慣CRUD(名前/絵文字)を chrome.storage.local に保存・読込
 - [x] T003: 今日のチェック→ドット付与、連続日数(streak)計算
 - [x] T004: 月カレンダーに達成ドットを表示
-- [ ] T005: 日付管理(当日判定・過去は保持)
+- [x] T005: 日付管理(当日判定・過去は保持)
 - [ ] T006: 起動時に storage.local から全状態を復元
 - [ ] T007: _locales ja/en を chrome.i18n で全UIに適用
 - [ ] T008: Premiumゲート(7日トライアル trial_start_ts + Stripe Checkout URL)。無料は習慣3つ、Premiumで無制限+ストリーク履歴
