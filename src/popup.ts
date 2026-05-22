@@ -2,41 +2,91 @@ type Habit = {
   id: string;
   name: string;
   emoji: string;
+  completedDates: string[];
   checkedToday: boolean;
+  streak: number;
 };
 
-type StoredHabit = Pick<Habit, "id" | "name" | "emoji">;
+type StoredHabit = Pick<Habit, "id" | "name" | "emoji" | "completedDates">;
 
 const STORAGE_KEY = "habit-dots:habits";
 
 const defaultHabits: StoredHabit[] = [
-  { id: "water", name: "水を飲む", emoji: "💧" },
-  { id: "stretch", name: "ストレッチ", emoji: "🧘" },
-  { id: "journal", name: "日記", emoji: "✍️" },
+  { id: "water", name: "水を飲む", emoji: "💧", completedDates: [] },
+  { id: "stretch", name: "ストレッチ", emoji: "🧘", completedDates: [] },
+  { id: "journal", name: "日記", emoji: "✍️", completedDates: [] },
 ];
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
-function isStoredHabit(value: unknown): value is StoredHabit {
+function isDateKey(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function offsetDateKey(dateKey: string, offsetDays: number): string {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + offsetDays);
+  return toDateKey(date);
+}
+
+function calculateStreak(completedDates: string[], todayKey = toDateKey(new Date())): number {
+  const completedDateSet = new Set(completedDates);
+  let currentDateKey = completedDateSet.has(todayKey) ? todayKey : offsetDateKey(todayKey, -1);
+  let streak = 0;
+
+  while (completedDateSet.has(currentDateKey)) {
+    streak += 1;
+    currentDateKey = offsetDateKey(currentDateKey, -1);
+  }
+
+  return streak;
+}
+
+function normalizeStoredHabit(value: unknown): StoredHabit | null {
   if (!value || typeof value !== "object") {
-    return false;
+    return null;
   }
 
   const habit = value as Record<string, unknown>;
-  return (
-    typeof habit.id === "string" &&
-    typeof habit.name === "string" &&
-    typeof habit.emoji === "string" &&
-    habit.id.trim().length > 0 &&
-    habit.name.trim().length > 0 &&
-    habit.emoji.trim().length > 0
-  );
+
+  if (
+    typeof habit.id !== "string" ||
+    typeof habit.name !== "string" ||
+    typeof habit.emoji !== "string" ||
+    habit.id.trim().length === 0 ||
+    habit.name.trim().length === 0 ||
+    habit.emoji.trim().length === 0
+  ) {
+    return null;
+  }
+
+  const completedDates = Array.isArray(habit.completedDates)
+    ? [...new Set(habit.completedDates.filter(isDateKey))].sort()
+    : [];
+
+  return {
+    id: habit.id,
+    name: habit.name,
+    emoji: habit.emoji,
+    completedDates,
+  };
 }
 
 function toHabit(storedHabit: StoredHabit): Habit {
+  const todayKey = toDateKey(new Date());
+
   return {
     ...storedHabit,
-    checkedToday: false,
+    checkedToday: storedHabit.completedDates.includes(todayKey),
+    streak: calculateStreak(storedHabit.completedDates, todayKey),
   };
 }
 
@@ -52,7 +102,13 @@ function loadStoredHabits(): Promise<StoredHabit[]> {
   return new Promise((resolve) => {
     chrome.storage.local.get([STORAGE_KEY], (result) => {
       const savedHabits = result[STORAGE_KEY];
-      resolve(Array.isArray(savedHabits) && savedHabits.every(isStoredHabit) ? savedHabits : defaultHabits);
+      if (!Array.isArray(savedHabits)) {
+        resolve(defaultHabits);
+        return;
+      }
+
+      const normalizedHabits = savedHabits.map(normalizeStoredHabit);
+      resolve(normalizedHabits.every((habit) => habit !== null) ? normalizedHabits : defaultHabits);
     });
   });
 }
@@ -65,6 +121,7 @@ function saveStoredHabits(habits: StoredHabit[]): Promise<void> {
 
 function renderHabit(
   habit: Habit,
+  onToggleToday: (habit: Habit) => void,
   onEdit: (habit: Habit) => void,
   onDelete: (habit: Habit) => void,
 ): HTMLLIElement {
@@ -79,13 +136,21 @@ function renderHabit(
   name.className = "habit-name";
   name.textContent = habit.name;
 
+  const details = document.createElement("span");
+  details.className = "habit-details";
+  details.textContent = `${habit.streak}日連続`;
+
+  const copy = document.createElement("span");
+  copy.className = "habit-copy";
+  copy.append(name, details);
+
   const label = document.createElement("label");
   label.className = "today-check";
 
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.checked = habit.checkedToday;
-  checkbox.disabled = true;
+  checkbox.addEventListener("change", () => onToggleToday(habit));
 
   const checkText = document.createElement("span");
   checkText.textContent = "今日";
@@ -107,7 +172,7 @@ function renderHabit(
 
   actions.append(editButton, deleteButton);
   label.append(checkbox, checkText);
-  item.append(icon, name, label, actions);
+  item.append(icon, copy, label, actions);
 
   return item;
 }
@@ -252,6 +317,18 @@ function renderPopup(root: HTMLDivElement, storedHabits: StoredHabit[]): void {
       overflow-wrap: anywhere;
     }
 
+    .habit-copy {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .habit-details {
+      color: #5d6b7a;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
     .today-check {
       display: inline-flex;
       align-items: center;
@@ -295,6 +372,30 @@ function renderPopup(root: HTMLDivElement, storedHabits: StoredHabit[]): void {
   const persistAndRender = async (nextHabits: StoredHabit[]): Promise<void> => {
     await saveStoredHabits(nextHabits);
     rerenderWith(nextHabits);
+  };
+
+  const toggleToday = (habitToToggle: Habit): void => {
+    const todayKey = toDateKey(new Date());
+    const nextHabits = storedHabits.map((habit) => {
+      if (habit.id !== habitToToggle.id) {
+        return habit;
+      }
+
+      const completedDateSet = new Set(habit.completedDates);
+
+      if (completedDateSet.has(todayKey)) {
+        completedDateSet.delete(todayKey);
+      } else {
+        completedDateSet.add(todayKey);
+      }
+
+      return {
+        ...habit,
+        completedDates: [...completedDateSet].sort(),
+      };
+    });
+
+    void persistAndRender(nextHabits);
   };
 
   const shell = document.createElement("main");
@@ -391,7 +492,7 @@ function renderPopup(root: HTMLDivElement, storedHabits: StoredHabit[]): void {
 
     const nextHabits = editingId
       ? storedHabits.map((habit) => (habit.id === editingId ? { ...habit, emoji, name } : habit))
-      : [...storedHabits, { id: createHabitId(), emoji, name }];
+      : [...storedHabits, { id: createHabitId(), emoji, name, completedDates: [] }];
 
     void persistAndRender(nextHabits);
   });
@@ -404,6 +505,7 @@ function renderPopup(root: HTMLDivElement, storedHabits: StoredHabit[]): void {
     ...habits.map((habit) =>
       renderHabit(
         habit,
+        toggleToday,
         (habitToEdit) => {
           editingId = habitToEdit.id;
           emojiInput.value = habitToEdit.emoji;
