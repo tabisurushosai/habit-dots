@@ -20,6 +20,13 @@ const defaultHabits: StoredHabit[] = [
 const app = document.querySelector<HTMLDivElement>("#app");
 const DATE_ROLLOVER_CHECK_MS = 60_000;
 
+function cloneStoredHabits(habits: StoredHabit[]): StoredHabit[] {
+  return habits.map((habit) => ({
+    ...habit,
+    completedDates: [...habit.completedDates],
+  }));
+}
+
 function isDateKey(value: unknown): value is string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
@@ -103,6 +110,18 @@ function toHabit(storedHabit: StoredHabit, todayKey: string): Habit {
   };
 }
 
+function normalizeStoredHabits(value: unknown): StoredHabit[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const normalizedHabits = value
+    .map(normalizeStoredHabit)
+    .filter((habit): habit is StoredHabit => habit !== null);
+
+  return normalizedHabits;
+}
+
 function createHabitId(): string {
   if (typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -114,16 +133,15 @@ function createHabitId(): string {
 function loadStoredHabits(): Promise<StoredHabit[]> {
   return new Promise((resolve) => {
     chrome.storage.local.get([STORAGE_KEY], (result) => {
-      const savedHabits = result[STORAGE_KEY];
-      if (!Array.isArray(savedHabits)) {
-        resolve(defaultHabits);
-        return;
-      }
-
-      const normalizedHabits = savedHabits.map(normalizeStoredHabit);
-      resolve(normalizedHabits.every((habit) => habit !== null) ? normalizedHabits : defaultHabits);
+      const normalizedHabits = normalizeStoredHabits(result[STORAGE_KEY]);
+      resolve(normalizedHabits ?? cloneStoredHabits(defaultHabits));
     });
   });
+}
+
+async function restorePopupState(): Promise<StoredHabit[]> {
+  const storedHabits = await loadStoredHabits();
+  return cloneStoredHabits(storedHabits);
 }
 
 function saveStoredHabits(habits: StoredHabit[]): Promise<void> {
@@ -702,7 +720,7 @@ if (app) {
     renderPopup(app, currentStoredHabits, new Date(), updateStoredHabits);
   };
 
-  void loadStoredHabits().then((habits) => {
+  void restorePopupState().then((habits) => {
     updateStoredHabits(habits);
     renderCurrentState();
 
