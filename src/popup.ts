@@ -50,6 +50,20 @@ function calculateStreak(completedDates: string[], todayKey = toDateKey(new Date
   return streak;
 }
 
+function getMonthDateKeys(date: Date): string[] {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const dateKeys: string[] = [];
+  const currentDate = new Date(year, month, 1);
+
+  while (currentDate.getMonth() === month) {
+    dateKeys.push(toDateKey(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return dateKeys;
+}
+
 function normalizeStoredHabit(value: unknown): StoredHabit | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -177,6 +191,84 @@ function renderHabit(
   return item;
 }
 
+function renderMonthCalendar(habits: Habit[]): HTMLElement {
+  const today = new Date();
+  const todayKey = toDateKey(today);
+  const monthDateKeys = getMonthDateKeys(today);
+  const firstWeekday = new Date(today.getFullYear(), today.getMonth(), 1).getDay();
+  const weekdayLabels = ["日", "月", "火", "水", "木", "金", "土"];
+
+  const completedByDate = new Map<string, Habit[]>();
+  for (const habit of habits) {
+    for (const dateKey of habit.completedDates) {
+      const dateHabits = completedByDate.get(dateKey) ?? [];
+      dateHabits.push(habit);
+      completedByDate.set(dateKey, dateHabits);
+    }
+  }
+
+  const section = document.createElement("section");
+  section.className = "calendar-section";
+
+  const heading = document.createElement("h2");
+  heading.className = "section-heading";
+  heading.textContent = `${today.getFullYear()}年${today.getMonth() + 1}月`;
+
+  const calendar = document.createElement("div");
+  calendar.className = "month-calendar";
+  calendar.setAttribute("role", "grid");
+  calendar.setAttribute("aria-label", "月カレンダー");
+
+  for (const label of weekdayLabels) {
+    const weekday = document.createElement("span");
+    weekday.className = "calendar-weekday";
+    weekday.textContent = label;
+    calendar.append(weekday);
+  }
+
+  for (let index = 0; index < firstWeekday; index += 1) {
+    const spacer = document.createElement("span");
+    spacer.className = "calendar-day is-spacer";
+    spacer.setAttribute("aria-hidden", "true");
+    calendar.append(spacer);
+  }
+
+  for (const dateKey of monthDateKeys) {
+    const completedHabits = completedByDate.get(dateKey) ?? [];
+    const day = document.createElement("span");
+    day.className = "calendar-day";
+    day.setAttribute("role", "gridcell");
+    day.setAttribute(
+      "aria-label",
+      `${dateKey}: ${completedHabits.length > 0 ? completedHabits.map((habit) => habit.name).join("、") : "達成なし"}`,
+    );
+
+    if (dateKey === todayKey) {
+      day.classList.add("is-today");
+    }
+
+    const dayNumber = document.createElement("span");
+    dayNumber.className = "calendar-day-number";
+    dayNumber.textContent = String(Number(dateKey.slice(-2)));
+
+    const dots = document.createElement("span");
+    dots.className = "calendar-dots";
+
+    for (const habit of completedHabits.slice(0, 6)) {
+      const dot = document.createElement("span");
+      dot.className = "calendar-dot";
+      dot.title = habit.name;
+      dots.append(dot);
+    }
+
+    day.append(dayNumber, dots);
+    calendar.append(day);
+  }
+
+  section.append(heading, calendar);
+  return section;
+}
+
 function renderPopup(root: HTMLDivElement, storedHabits: StoredHabit[]): void {
   root.innerHTML = "";
   const habits = storedHabits.map(toHabit);
@@ -216,6 +308,70 @@ function renderPopup(root: HTMLDivElement, storedHabits: StoredHabit[]): void {
     .habit-section {
       display: grid;
       gap: 8px;
+    }
+
+    .calendar-section {
+      display: grid;
+      gap: 8px;
+    }
+
+    .month-calendar {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .calendar-weekday {
+      color: #5d6b7a;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .calendar-day {
+      box-sizing: border-box;
+      display: grid;
+      grid-template-rows: 16px 1fr;
+      gap: 2px;
+      min-width: 0;
+      min-height: 38px;
+      padding: 4px;
+      border: 1px solid #dde3ea;
+      border-radius: 7px;
+      background: #ffffff;
+    }
+
+    .calendar-day.is-spacer {
+      border-color: transparent;
+      background: transparent;
+    }
+
+    .calendar-day.is-today {
+      border-color: #2563eb;
+    }
+
+    .calendar-day-number {
+      color: #405160;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      text-align: center;
+    }
+
+    .calendar-dots {
+      display: flex;
+      flex-wrap: wrap;
+      align-content: center;
+      justify-content: center;
+      gap: 2px;
+      min-height: 12px;
+    }
+
+    .calendar-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: #16a34a;
     }
 
     .habit-form {
@@ -526,7 +682,7 @@ function renderPopup(root: HTMLDivElement, storedHabits: StoredHabit[]): void {
   emptyState.textContent = "習慣がありません。";
 
   habitSection.append(heading, form, habits.length > 0 ? list : emptyState);
-  shell.append(summary, habitSection);
+  shell.append(summary, renderMonthCalendar(habits), habitSection);
   root.append(style, shell);
 }
 
