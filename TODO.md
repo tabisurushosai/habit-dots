@@ -1,0 +1,12 @@
+# habit-dots TODO
+- [ ] T001: src/popup.ts に popup骨格(習慣一覧 + 今日のチェック)を構築
+- [ ] T002: 習慣CRUD(名前/絵文字)を chrome.storage.local に保存・読込
+- [ ] T003: 今日のチェック→ドット付与、連続日数(streak)計算
+- [ ] T004: 月カレンダーに達成ドットを表示
+- [ ] T005: 日付管理(当日判定・過去は保持)
+- [ ] T006: 起動時に storage.local から全状態を復元
+- [ ] T007: _locales ja/en を chrome.i18n で全UIに適用
+- [ ] T008: Premiumゲート(7日トライアル trial_start_ts + Stripe Checkout URL)。無料は習慣3つ、Premiumで無制限+ストリーク履歴
+- [ ] T009: npm run build を通し ts/lint を解消
+- [ ] T010: release/habit-dots.zip 生成(manifest+icons+_locales+dist、node_modules除外)
+- [ ] T011: legal/PRIVACY.md と TERMS.md 作成(外部通信なし・データ収集なし)
